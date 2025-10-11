@@ -66,4 +66,55 @@ return {
     end,
   },
 
+  -- Plugin for go debug
+  {
+    "mfussenegger/nvim-dap",
+    config = function()
+      local dap = require('dap')
+
+      -- Toggle breakpoint keymap
+      vim.api.nvim_set_keymap('n', '<leader>ab', ":lua require'dap'.toggle_breakpoint()<CR>", { noremap = true, silent = true })
+      -- Continue keymap
+      vim.api.nvim_set_keymap('n', '<leader>cd', ":lua require'dap'.continue()<CR>", { noremap = true, silent = true })
+
+      -- Go adapter configuration using delve
+      dap.adapters.go = {
+        type = 'server',
+        host = '127.0.0.1',
+        port = '${port}',
+        executable = {
+          command = 'dlv',
+          args = { 'dap', '-l', '127.0.0.1:${port}' },
+        }
+      }
+
+      dap.configurations.go = {
+        {
+          type = 'go',
+          name = 'Debug',
+          request = 'launch',
+          program = '${file}',
+        },
+        {
+          type = 'go',
+          name = 'Debug test',
+          request = 'launch',
+          mode = 'test',
+          program = '${file}',
+        },
+        {
+          type = 'go',
+          name = 'Debug test (package)',
+          request = 'launch',
+          mode = 'test',
+          program = './${relativeFileDirname}',
+        }
+      }
+
+      -- Optional: Define a sign for breakpoints
+      vim.fn.sign_define('DapBreakpoint', {text='🛑', texthl='', linehl='', numhl=''})
+
+    end,
+  },
+
 }

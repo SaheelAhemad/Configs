@@ -176,6 +176,14 @@ map("n", "<leader>fg", function()
   vim.cmd("Telescope live_grep")
 end, { desc = "Live grep" })
 
+map("n", "<leader>fw", function()
+  local windows = vim.api.nvim_list_wins()
+  if #windows > 1 then
+    vim.cmd("only")
+  end
+  vim.cmd("Telescope live_grep")
+end, { desc = "Live grep in workspace" })
+
 map("n", "<leader>fb", function()
   local windows = vim.api.nvim_list_wins()
   if #windows > 1 then
@@ -215,6 +223,14 @@ map("n", "<leader>fk", function()
   end
   vim.cmd("Telescope keymaps")
 end, { desc = "Keymaps" })
+
+map("n", "<leader>fp", function()
+  local windows = vim.api.nvim_list_wins()
+  if #windows > 1 then
+    vim.cmd("only")  -- Close all other windows
+  end
+  vim.cmd("Telescope projects")
+end, { desc = "Recent projects" })
 
 -- Buffer switching
 map("n", "t", "<cmd>bnext<cr>", { desc = "Next buffer" })
