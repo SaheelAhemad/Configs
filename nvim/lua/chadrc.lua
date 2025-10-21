@@ -1,18 +1,25 @@
--- This file needs to have same structure as nvconfig.lua 
+-- This file needs to have same structure as nvconfig.lua
 -- https://github.com/NvChad/ui/blob/v3.0/lua/nvconfig.lua
--- Please read that file to know all available options :( 
+-- Please read that file to know all available options :(
 
 ---@type ChadrcConfig
+
 local M = {}
+-- M.plugins = "custom.plugins"
+-- remove the cyclic dependency to get the builtin nvchad keymaps
+-- M.mappings = require "mappings"
+
+-- load custom lsp config
+-- vim.api.nvim_create_autocmd("LspAttach", {
+--   callback = function()
+--     require("configs.lspconfig")
+--   end,
+-- })
+
 
 M.base46 = {
-	theme = "aylin",
-	transparency = false, -- transparency can cause lag
-
-	-- hl_override = {
-	-- 	Comment = { italic = true },
-	-- 	["@comment"] = { italic = true },
-	-- },
+  theme = "ayu_dark",
+  transparency = false, -- transparency can cause lag
 }
 
 -- Custom statusline with git info
@@ -23,31 +30,46 @@ M.ui = {
     order = { "mode", "git", "file", "%=", "cursor" },
     modules = {
       git = function()
-        -- Load git branch once and keep it permanent
-        if not vim.g._git_branch_permanent then
+        -- Prefer gitsigns' detected head for the current buffer
+        local head = vim.b.gitsigns_head
+        if not head or head == "" then
+          -- Fallback to shell call if gitsigns not available yet
           local ok, branch = pcall(function()
-            local handle = io.popen("git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null")
+            local handle = io.popen(
+            "git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null")
             if handle then
               local result = handle:read("*a"):gsub("\n", "")
               handle:close()
               return result
             end
-            return "no-git"
+            return ""
           end)
-          
-          vim.g._git_branch_permanent = ok and branch or "no-git"
+          head = ok and branch or ""
         end
-        
-        -- Always return the permanent branch
-        return "%#St_gitIcons# 󰊢 " .. vim.g._git_branch_permanent .. " "
+
+        if head ~= nil and head ~= "" then
+          return "%#St_gitIcons# 󰊢 " .. head .. " "
+        end
+
+        return ""
       end,
     },
   },
-  
-  -- Enable tabufline to show open files at top
-  tabufline = {
-    enabled = true,
-    lazyload = true,
+
+  bufferline = {
+    -- Disable built-in bufferline
+    enable = true,
+  },
+
+}
+
+
+-- Performance optimizations
+M.lazy_nvim = {
+  performance = {
+    rtp = {
+      disabled_plugins = {},
+    },
   },
 }
 

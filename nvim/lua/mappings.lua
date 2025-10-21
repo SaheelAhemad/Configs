@@ -4,10 +4,23 @@ require "nvchad.mappings"
 
 local map = vim.keymap.set
 
+-- Basic navigation
 map("n", ";", ":", { desc = "CMD enter command mode" })
 map("i", "jk", "<ESC>")
 
--- VS Code-style error navigation
+-- Override NvChad's default <C-n> to use Neotree instead of nvim-tree
+map("n", "<C-n>", "<cmd>Neotree toggle<cr>", { desc = "Toggle Neo-tree", noremap = true, silent = true })
+
+-- Disable nvim-tree commands and redirect to Neotree
+vim.api.nvim_create_user_command("NvimTreeToggle", function()
+  vim.cmd("Neotree toggle")
+end, { desc = "Redirect NvimTreeToggle to Neotree" })
+
+vim.api.nvim_create_user_command("NvimTreeFocus", function()
+  vim.cmd("Neotree focus")
+end, { desc = "Redirect NvimTreeFocus to Neotree" })
+
+-- Enhanced diagnostic navigation
 map("n", "]d", vim.diagnostic.goto_next, { desc = "Next diagnostic" })
 map("n", "[d", vim.diagnostic.goto_prev, { desc = "Previous diagnostic" })
 
@@ -63,184 +76,14 @@ map("n", "<leader>e", function()
 end, { desc = "Show diagnostic message" })
 map("n", "<leader>E", vim.diagnostic.hide, { desc = "Hide diagnostic message" })
 
--- Go test running
-map("n", "<leader>tt", function()
-  if vim.bo.filetype ~= "go" then
-    vim.notify("Not a Go file!", vim.log.levels.WARN)
-    return
-  end
-
-  vim.cmd("w") -- Save file before test
-
-  -- Run all tests in the entire project (from project root)
-  local project_root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
-  if project_root == "" then
-    -- Fallback to current directory if not in a git repo
-    project_root = vim.fn.getcwd()
-  end
-  
-  local cmd = string.format("cd %s && go test -v ./...", vim.fn.shellescape(project_root))
-  vim.notify("Running all tests in project: " .. project_root, vim.log.levels.INFO)
-  vim.cmd("!" .. cmd)
-end, { desc = "Run all Go tests in entire project" })
-
-map("n", "<leader>tf", function()
-  if vim.bo.filetype ~= "go" then
-    vim.notify("Not a Go file!", vim.log.levels.WARN)
-    return
-  end
-
-  vim.cmd("w") -- Save file before test
-
-  -- Run all tests in the current file only
-  local file_dir = vim.fn.expand("%:p:h")
-  local file_name = vim.fn.expand("%:t:r") -- Get filename without extension
-  
-  local cmd = string.format("cd %s && go test -v -run %s", 
-    vim.fn.shellescape(file_dir), 
-    vim.fn.shellescape(file_name)
-  )
-
-  vim.notify("Running all tests in file: " .. file_name, vim.log.levels.INFO)
-  vim.cmd("!" .. cmd)
-end, { desc = "Run all Go tests in current file" })
-
-map("n", "<leader>ts", function()
-  if vim.bo.filetype ~= "go" then
-    vim.notify("Not a Go file!", vim.log.levels.WARN)
-    return
-  end
-
-  vim.cmd("w") -- Save file before test
-
-  -- Get current line
-  local current_line = vim.fn.line(".")
-  
-  -- Find test function using a simple approach
-  local test_name = nil
-  
-  -- Search backwards from current line
-  for i = current_line, 1, -1 do
-    local line = vim.api.nvim_buf_get_lines(0, i-1, i, false)[1]
-    if line then
-      -- Look for any function that starts with "Test" (with or without implementation)
-      local patterns = {
-        "func%s+(Test%w+)%s*%(",  -- func TestSomething(
-        "func%s+%(%w+%s*%*%w+%)%s+(Test%w+)%s*%(",  -- func (receiver *AnyStruct) TestSomething(
-        "func%s+(Test%w+)%s*%(%w*%)%s*%w*",  -- func TestSomething() returnType (interface methods)
-        "func%s+%(%w+%s*%*%w+%)%s+(Test%w+)%s*%(%w*%)%s*%w*",  -- func (receiver *AnyStruct) TestSomething() returnType
-        "func%s+(Test%w+[_%w]*)%s*%(",  -- func TestSomething_WithUnderscores(
-        "func%s+%(%w+%s*%*%w+%)%s+(Test%w+[_%w]*)%s*%(",  -- func (receiver *AnyStruct) TestSomething_WithUnderscores(
-      }
-      
-      for _, pattern in ipairs(patterns) do
-        local match = line:match(pattern)
-        if match then
-          test_name = match
-          break
-        end
-      end
-      
-      if test_name then break end
-    end
-  end
-  
-  if not test_name then
-    vim.notify("No test function found above cursor", vim.log.levels.ERROR)
-    return
-  end
-  
-  -- Run the specific test function
-  local file_dir = vim.fn.expand("%:p:h")
-  local cmd = string.format("cd %s && go test -v -run %s", vim.fn.shellescape(file_dir), vim.fn.shellescape(test_name))
-  
-  vim.notify("Running single test: " .. test_name, vim.log.levels.INFO)
-  vim.cmd("!" .. cmd)
-end, { desc = "Run single Go test function under cursor" })
-
--- Telescope keybindings - ensure single window opening
-map("n", "<leader>ff", function()
-  -- Ensure we're in single window mode before opening telescope
-  local windows = vim.api.nvim_list_wins()
-  if #windows > 1 then
-    vim.cmd("only")  -- Close all windows except current
-  end
-  vim.cmd("Telescope find_files")
-end, { desc = "Find files" })
-
-map("n", "<leader>fg", function()
-  local windows = vim.api.nvim_list_wins()
-  if #windows > 1 then
-    vim.cmd("only")
-  end
-  vim.cmd("Telescope live_grep")
-end, { desc = "Live grep" })
-
-map("n", "<leader>fb", function()
-  local windows = vim.api.nvim_list_wins()
-  if #windows > 1 then
-    vim.cmd("only")
-  end
-  vim.cmd("Telescope buffers")
-end, { desc = "Find buffers" })
-
-map("n", "<leader>fh", function()
-  local windows = vim.api.nvim_list_wins()
-  if #windows > 1 then
-    vim.cmd("only")
-  end
-  vim.cmd("Telescope help_tags")
-end, { desc = "Help tags" })
-
-map("n", "<leader>fr", function()
-  local windows = vim.api.nvim_list_wins()
-  if #windows > 1 then
-    vim.cmd("only")
-  end
-  vim.cmd("Telescope oldfiles")
-end, { desc = "Recent files" })
-
-map("n", "<leader>fc", function()
-  local windows = vim.api.nvim_list_wins()
-  if #windows > 1 then
-    vim.cmd("only")
-  end
-  vim.cmd("Telescope commands")
-end, { desc = "Commands" })
-
-map("n", "<leader>fk", function()
-  local windows = vim.api.nvim_list_wins()
-  if #windows > 1 then
-    vim.cmd("only")
-  end
-  vim.cmd("Telescope keymaps")
-end, { desc = "Keymaps" })
-
--- Buffer switching
-map("n", "t", "<cmd>bnext<cr>", { desc = "Next buffer" })
-map("n", "T", "<cmd>bprevious<cr>", { desc = "Previous buffer" })
-
-
--- Override default file opening to ensure single window
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = "NvimTree",
-  callback = function()
-    -- When NvimTree opens, ensure it doesn't create splits
-    vim.keymap.set("n", "<CR>", function()
-      local node = require("nvim-tree.lib").get_node_at_cursor()
-      if node and node.absolute_path then
-        -- Close NvimTree first, then open file in single window
-        vim.cmd("NvimTreeClose")
-        vim.cmd("edit " .. vim.fn.fnameescape(node.absolute_path))
-      end
-    end, { buffer = true, desc = "Open file in single window" })
-  end,
-})
+-- Switch tabs
+map("n", "t", "<cmd>bnext<cr>", { desc = "Next buffer", noremap = true, silent = true })
+map("n", "T", "<cmd>bprevious<cr>", { desc = "Previous buffer", noremap = true, silent = true })
 
 -- Terminal keybindings
 map("n", "<leader>ot", function()
-  -- Check if NvimTree is open
-  local nvim_tree_open = false
+  -- Check if neo-tree is open
+  local neo_tree_open = false
   local windows = vim.api.nvim_list_wins()
   
   for _, win in ipairs(windows) do
@@ -248,25 +91,21 @@ map("n", "<leader>ot", function()
     local buf_name = vim.api.nvim_buf_get_name(buf)
     local filetype = vim.api.nvim_buf_get_option(buf, "filetype")
     
-    if filetype == "NvimTree" then
-      nvim_tree_open = true
+    if filetype == "neo-tree" then
+      neo_tree_open = true
       break
     end
   end
   
-  if nvim_tree_open then
-    -- If NvimTree is open, open terminal in the main area (right side)
+  if neo_tree_open then
+    -- If neo-tree is open, open terminal in the main area (right side)
     vim.cmd("wincmd l") -- Move to right window (main area)
-    vim.cmd("split | terminal")
-    vim.cmd("wincmd J") -- Move terminal to bottom
-    vim.cmd("resize 15") -- Set terminal height
+    vim.cmd("ToggleTerm direction=horizontal")
   else
-    -- If NvimTree is not open, open terminal normally
-    vim.cmd("split | terminal")
-    vim.cmd("wincmd J") -- Move terminal to bottom
-    vim.cmd("resize 15") -- Set terminal height
+    -- If neo-tree is not open, open terminal normally
+    vim.cmd("ToggleTerm direction=horizontal")
   end
-end, { desc = "Open terminal at bottom (after NvimTree if open)" })
+end, { desc = "Open terminal at bottom (after neo-tree if open)" })
 
 -- Git diff window management with original file tracking
 local original_file_path = nil
@@ -292,10 +131,8 @@ local function restore_original_file()
   return false
 end
 
-
-
 -- Alternative command for closing git buffers (same as gq but different key)
-map("n", "<leader>gQ", function()
+map("n", "<leader>gq", function()
   -- Try to restore original file first
   if restore_original_file() then
     vim.notify("Returned to original file", vim.log.levels.INFO)
@@ -392,29 +229,139 @@ map("n", "<leader>gR", function()
   end
 end, { desc = "Force return to working file (handles git revisions)" })
 
--- Debug command to show current buffer info (DISABLED)
--- map("n", "<leader>gd", function()
-  local current_buf = vim.api.nvim_get_current_buf()
-  local buf_name = vim.api.nvim_buf_get_name(current_buf)
-  local filetype = vim.bo.filetype
-  local buftype = vim.bo.buftype
+-- Go test running
+map("n", "<leader>tt", function()
+  if vim.bo.filetype ~= "go" then
+    vim.notify("Not a Go file!", vim.log.levels.WARN)
+    return
+  end
+
+  vim.cmd("w") -- Save file before test
+
+  -- Run all tests in the entire project (from project root)
+  local project_root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
+  if project_root == "" then
+    -- Fallback to current directory if not in a git repo
+    project_root = vim.fn.getcwd()
+  end
   
-  vim.notify("=== DEBUG INFO ===", vim.log.levels.INFO)
-  vim.notify("Buffer name: " .. buf_name, vim.log.levels.INFO)
-  vim.notify("Filetype: " .. filetype, vim.log.levels.INFO)
-  vim.notify("Buftype: " .. buftype, vim.log.levels.INFO)
-  vim.notify("Is HEAD: " .. tostring(buf_name:match("HEAD")), vim.log.levels.INFO)
-  vim.notify("Has colon: " .. tostring(buf_name:match(":%%")), vim.log.levels.INFO)
-  
-  -- Show all buffers
-  local buffers = vim.api.nvim_list_bufs()
-  vim.notify("Total buffers: " .. #buffers, vim.log.levels.INFO)
-  for i, buf in ipairs(buffers) do
-    local buf_name_check = vim.api.nvim_buf_get_name(buf)
-    if buf_name_check ~= "" then
-      vim.notify("Buffer " .. i .. ": " .. buf_name_check, vim.log.levels.INFO)
+  local cmd = string.format("cd %s && go test -v ./...", vim.fn.shellescape(project_root))
+  vim.notify("Running all tests in project: " .. project_root, vim.log.levels.INFO)
+  vim.cmd("!" .. cmd)
+end, { desc = "Run all Go tests in entire project" })
+
+map("n", "<leader>ts", function()
+  if vim.bo.filetype ~= "go" then
+    vim.notify("Not a Go file!", vim.log.levels.WARN)
+    return
+  end
+
+  vim.cmd("w") -- Save file
+
+  local test_method = nil
+  local suite_func = nil
+  local normal_func = nil
+
+  local current_line = vim.fn.line(".")
+
+  -- Step 1: Search upward for test method or normal func
+  for i = current_line, 1, -1 do
+    local line = vim.api.nvim_buf_get_lines(0, i - 1, i, false)[1]
+
+    if line then
+      -- Match suite test method: func (suite *SuiteType) TestXxx()
+      if not test_method then
+        local method = line:match("^func%s+%([^%)]+%)%s+(Test%w+)%s*%(")
+        if method then
+          test_method = method
+        end
+      end
+
+      -- Match regular test function
+      if not normal_func then
+        local func = line:match("^func%s+(Test%w+)%s*%(")
+        if func then
+          normal_func = func
+        end
+      end
+
+      if test_method and normal_func then break end
     end
   end
--- end, { desc = "Debug: Show current buffer info" })
 
--- map({ "n", "i", "v" }, "<C-s>", "<cmd> w <cr>")
+  -- Step 2: If this is a suite method, search whole file for suite runner
+  if test_method and not suite_func then
+    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    for _, line in ipairs(lines) do
+      -- look for: func TestCalculatorTestSuite(t *testing.T)
+      local suite = line:match("^func%s+(Test%w+)%s*%(")
+      if suite then
+        suite_func = suite
+        break
+      end
+    end
+  end
+
+  -- Step 3: Build test command
+  local file_dir = vim.fn.expand("%:p:h")
+  local cmd = ""
+
+  if test_method and suite_func then
+    -- Suite test method
+    cmd = string.format(
+      "cd %s && go test -v -run '^%s$' -testify.m '^%s$'",
+      vim.fn.shellescape(file_dir),
+      suite_func,
+      test_method
+    )
+    vim.notify("Running suite method: " .. suite_func .. " -> " .. test_method, vim.log.levels.INFO)
+  elseif normal_func then
+    -- Regular Go test function
+    cmd = string.format(
+      "cd %s && go test -v -run '^%s$'",
+      vim.fn.shellescape(file_dir),
+      normal_func
+    )
+    vim.notify("Running test function: " .. normal_func, vim.log.levels.INFO)
+  else
+    vim.notify("Could not determine test to run.", vim.log.levels.ERROR)
+    return
+  end
+
+  vim.cmd("!" .. cmd)
+end, { desc = "Run Go test under cursor (regular or testify suite)" })
+
+map("n", "<leader>tf", function()
+  if vim.bo.filetype ~= "go" then
+    vim.notify("Not a Go file!", vim.log.levels.WARN)
+    return
+  end
+
+  vim.cmd("w")
+
+  local current_line = vim.fn.line(".")
+  local suite_func = nil
+
+  -- Look upward for suite function
+  for i = current_line, 1, -1 do
+    local line = vim.api.nvim_buf_get_lines(0, i - 1, i, false)[1]
+    if line then
+      local match = line:match("^func%s+(Test%w+)%s*%(")
+      if match then
+        suite_func = match
+        break
+      end
+    end
+  end
+
+  if not suite_func then
+    vim.notify("No suite function found above cursor!", vim.log.levels.ERROR)
+    return
+  end
+
+  local file_dir = vim.fn.expand("%:p:h")
+  local cmd = string.format("cd %s && go test -v -run '^%s$'", vim.fn.shellescape(file_dir), suite_func)
+
+  vim.notify("Running ALL tests in suite: " .. suite_func, vim.log.levels.INFO)
+  vim.cmd("!" .. cmd)
+end, { desc = "Run entire Go test suite under cursor" })

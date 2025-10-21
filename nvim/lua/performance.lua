@@ -36,7 +36,7 @@ vim.opt.lazyredraw = false -- keep false for better experience
 vim.opt.completeopt = "menu,menuone,noselect"
 
 -- Disable swap files (can cause lag)
-vim.opt.swapfile = false
+-- vim.opt.swapfile = false
 
 -- Better search performance
 vim.opt.ignorecase = true
@@ -47,8 +47,8 @@ vim.opt.scrolljump = 1
 vim.opt.sidescrolloff = 3
 
 -- Memory optimizations
-vim.opt.hidden = true
-vim.opt.history = 100
+-- vim.opt.hidden = true
+-- vim.opt.history = 100
 
 -- Disable unnecessary providers for faster startup
 vim.g.loaded_python3_provider = 0
