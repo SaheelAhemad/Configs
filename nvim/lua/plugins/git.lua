@@ -104,14 +104,46 @@ return {
     }
   },
 
-  {
+{
     "sindrets/diffview.nvim",
     cmd = { "DiffviewOpen", "DiffviewClose", "DiffviewToggleFiles", "DiffviewFocusFiles" },
     keys = {
       { "<leader>gv", "<cmd>DiffviewOpen<cr>", desc = "Diffview Open" },
       { "<leader>gV", "<cmd>DiffviewClose<cr>", desc = "Diffview Close" },
       { "<leader>gh", "<cmd>DiffviewFileHistory<cr>", desc = "File History" },
+      { "<leader>gD", function()
+        local view = require("diffview.lib").get_current_view()
+        if view then
+          -- Diffview is open, so close it
+          vim.cmd("DiffviewClose")
+          return
+        end
+
+        -- Diffview is not open, prompt for branch using Telescope
+        local ok, telescope = pcall(require, "telescope.builtin")
+        if not ok then
+          vim.notify("Telescope not found", vim.log.levels.ERROR)
+          return
+        end
+
+        telescope.git_branches({
+          prompt_title = "Diff with branch",
+          attach_mappings = function(_, map)
+            map("i", "<CR>", function(prompt_bufnr)
+              local actions = require("telescope.actions")
+              local state = require("telescope.actions.state")
+              local selection = state.get_selected_entry()
+              actions.close(prompt_bufnr)
+              if selection then
+                vim.cmd("DiffviewOpen " .. selection.value)
+              end
+            end)
+            return true
+          end,
+        })
+      end,
+      desc = "Toggle Diffview (select branch if closed)",
+      }
     }
   },
 }
-

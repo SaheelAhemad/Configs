@@ -1,102 +1,91 @@
 require("nvchad.autocmds")
--- Auto popup diagnostics on cursor movement
-local diagnostic_timer = nil
 
-local function show_hover_diagnostic()
-	-- Cancel any existing timer
-	if diagnostic_timer then
-		diagnostic_timer:stop()
-	end
+local virt_ns = vim.api.nvim_create_namespace("diagnostic_virtual_lines_aligned")
 
-	-- Debounce the function to prevent excessive calls
-	diagnostic_timer = vim.defer_fn(function()
-		local bufnr = vim.api.nvim_get_current_buf()
-		local diagnostics = vim.diagnostic.get(bufnr, { lnum = vim.fn.line(".") - 1 })
+-- Display virtual text at the error region
+local function render_virtual_diagnostics(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  vim.api.nvim_buf_clear_namespace(bufnr, virt_ns, 0, -1)
 
-		-- Filter to only show warnings and errors
-		local filtered_diagnostics = {}
-		for _, diagnostic in ipairs(diagnostics) do
-			if
-				diagnostic.severity == vim.diagnostic.severity.ERROR
-				or diagnostic.severity == vim.diagnostic.severity.WARN
-			then
-				table.insert(filtered_diagnostics, diagnostic)
-			end
-		end
+  local line_count = vim.api.nvim_buf_line_count(bufnr)
+  local diagnostics = vim.diagnostic.get(bufnr)
 
-		if #filtered_diagnostics > 0 then
-			-- Close any existing float
-			vim.diagnostic.hide()
+  for _, diagnostic in ipairs(diagnostics) do
+    if diagnostic.severity == vim.diagnostic.severity.ERROR then
+      -- Check line validity
+      if diagnostic.lnum < 0 or diagnostic.lnum >= line_count then
+        -- Skip invalid line numbers
+        goto continue
+      end
 
-			local opts = {
-				focusable = false,
-				close_events = { "CursorMoved", "CursorMovedI", "InsertEnter", "BufLeave" },
-				border = "rounded",
-				source = "always",
-				prefix = function(diagnostic)
-					if diagnostic.severity == vim.diagnostic.severity.ERROR then
-						return "Error: "
-					elseif diagnostic.severity == vim.diagnostic.severity.WARN then
-						return "Warning: "
-					end
-					return ""
-				end,
-				scope = "cursor",
-				max_width = 80,
-				max_height = 10,
-				header = "",
-				style = "minimal",
-				relative = "cursor",
-				row = 1,
-				col = 0,
-			}
-			vim.diagnostic.open_float(nil, opts)
-		end
-	end, 50) -- 50ms debounce
+      local hl_group = "DiagnosticVirtualTextError"
+      local msg = diagnostic.message:gsub("\n", " ")
+      local padding = string.rep(" ", diagnostic.col)
+
+      local virt_line = {
+        { padding .. "↳ ", "Comment" },
+        { "● ", hl_group },
+        { msg, hl_group },
+      }
+
+      vim.api.nvim_buf_set_extmark(bufnr, virt_ns, diagnostic.lnum, 0, {
+        virt_lines = { virt_line },
+        virt_lines_above = false,
+        hl_mode = "combine",
+      })
+
+      ::continue::
+    end
+  end
 end
 
--- Show diagnostics on hover and cursor movement (VS Code style)
-vim.api.nvim_create_autocmd({ "CursorHold", "CursorMoved" }, {
-	group = vim.api.nvim_create_augroup("vscode_hover_diagnostics", { clear = true }),
-	callback = show_hover_diagnostic,
+
+vim.api.nvim_create_autocmd({ "BufEnter", "BufWritePost", "TextChanged", "DiagnosticChanged" }, {
+  group = vim.api.nvim_create_augroup("vscode_virtual_diagnostics", { clear = true }),
+  callback = function(args)
+    render_virtual_diagnostics(args.buf)
+  end,
 })
 
--- -- Treesitter-powered folding for Go buffers
--- vim.api.nvim_create_autocmd({ "FileType" }, {
--- 	group = vim.api.nvim_create_augroup("treesitter_go_folds", { clear = true }),
--- 	pattern = "go",
--- 	callback = function()
--- 		vim.opt_local.foldmethod = "expr"
--- 		vim.opt_local.foldexpr = "nvim_treesitter#foldexpr()"
--- 		vim.opt_local.foldenable = true
--- 		vim.opt_local.foldlevel = 99
--- 	end,
--- })
+-- Floating popup on hover/move
+local function show_diagnostic_popup()
+  local opts = {
+    focusable = false,
+    close_events = { "CursorMoved", "CursorMovedI", "InsertEnter", "BufLeave" },
+    border = "rounded",
+    source = "always",
+    scope = "cursor",
+    prefix = function(diagnostic)
+      if diagnostic.severity == vim.diagnostic.severity.ERROR then
+        return "Error: "
+      end
+      return ""
+    end,
+  }
 
--- VS Code-style autosave: after short idle and on focus change
+  local diagnostics = vim.diagnostic.get(0, { lnum = vim.fn.line(".") - 1 })
+  if diagnostics and #diagnostics > 0 then
+    vim.diagnostic.open_float(nil, opts)
+  end
+end
+
+vim.api.nvim_create_autocmd({ "CursorHold", "CursorMoved" }, {
+  group = vim.api.nvim_create_augroup("hover_diagnostics_popup", { clear = true }),
+  callback = show_diagnostic_popup,
+})
+
+-- AutoSave
 local autosave_enabled = true
 local autosave_timer = nil
 
 local function should_save(buf)
-	if not vim.api.nvim_buf_is_valid(buf) then
-		return false
-	end
-	if vim.bo[buf].buftype ~= "" then
-		return false
-	end -- nofile/quickfix/etc
-	if not vim.bo[buf].modifiable then
-		return false
-	end
-	if vim.bo[buf].readonly then
-		return false
-	end
-	if vim.api.nvim_buf_get_name(buf) == "" then
-		return false
-	end -- unnamed
-	if not vim.api.nvim_buf_get_option(buf, "modified") then
-		return false
-	end
-	return true
+  if not vim.api.nvim_buf_is_valid(buf) then return false end
+  if vim.bo[buf].buftype ~= "" then return false end
+  if not vim.bo[buf].modifiable then return false end
+  if vim.bo[buf].readonly then return false end
+  if vim.api.nvim_buf_get_name(buf) == "" then return false end
+  if not vim.api.nvim_buf_get_option(buf, "modified") then return false end
+  return true
 end
 
 local function autosave_write(buf)
@@ -109,54 +98,27 @@ local function autosave_write(buf)
   end
 end
 
--- Debounced save on CursorHold (idle)
 vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" }, {
-	group = vim.api.nvim_create_augroup("autosave_idle", { clear = true }),
-	callback = function(args)
-		if not autosave_enabled then
-			return
-		end
-		if autosave_timer then
-			autosave_timer:stop()
-		end
-		autosave_timer = vim.defer_fn(function()
-			autosave_write(args.buf)
-		end, 1000) -- 1s idle like VS Code's default
-	end,
+  group = vim.api.nvim_create_augroup("autosave_idle", { clear = true }),
+  callback = function(args)
+    if autosave_timer then
+      autosave_timer:stop()
+    end
+    autosave_timer = vim.defer_fn(function()
+      autosave_write(args.buf)
+    end, 1000)
+  end,
 })
 
--- Immediate save on focus change and buffer leave
 vim.api.nvim_create_autocmd({ "FocusLost", "BufLeave", "InsertLeave" }, {
-	group = vim.api.nvim_create_augroup("autosave_focus", { clear = true }),
-	callback = function(args)
-		autosave_write(args.buf)
-	end,
+  group = vim.api.nvim_create_augroup("autosave_focus", { clear = true }),
+  callback = function(args)
+    autosave_write(args.buf)
+  end,
 })
 
--- User command to toggle autosave
 vim.api.nvim_create_user_command("AutosaveToggle", function()
-	autosave_enabled = not autosave_enabled
-	local state = autosave_enabled and "enabled" or "disabled"
-	vim.notify("Autosave " .. state, vim.log.levels.INFO)
+  autosave_enabled = not autosave_enabled
+  local state = autosave_enabled and "enabled" or "disabled"
+  vim.notify("Autosave " .. state, vim.log.levels.INFO)
 end, { desc = "Toggle autosave" })
-
--- Debug command to manually check diagnostics
-vim.api.nvim_create_user_command("DebugDiagnostics", function()
-	local bufnr = vim.api.nvim_get_current_buf()
-	local diagnostics = vim.diagnostic.get(bufnr)
-	local line_diagnostics = vim.diagnostic.get(bufnr, { lnum = vim.fn.line(".") - 1 })
-
-	vim.notify("=== DIAGNOSTIC DEBUG ===", vim.log.levels.INFO)
-	vim.notify("Total diagnostics in buffer: " .. #diagnostics, vim.log.levels.INFO)
-	vim.notify("Diagnostics on current line: " .. #line_diagnostics, vim.log.levels.INFO)
-
-	for i, diag in ipairs(line_diagnostics) do
-		vim.notify(
-			"Diagnostic " .. i .. ": " .. diag.message .. " (severity: " .. diag.severity .. ")",
-			vim.log.levels.INFO
-		)
-	end
-
-	-- Show all diagnostics
-	vim.diagnostic.open_float()
-end, { desc = "Debug diagnostics" })

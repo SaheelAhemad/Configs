@@ -1,27 +1,3 @@
--- return {
-
---   {
---     "williamboman/mason.nvim",
---     cmd = "Mason",
---     keys = { { "<leader>cm", "<cmd>Mason<cr>", desc = "Mason" } },
---     build = ":MasonUpdate",
---     opts = {
---       ui = {
---         border = "rounded",
---       },
---     },
---   },
-
---   {
---     "stevearc/conform.nvim",
---     event = { "BufWritePre", "BufNewFile" },
---     cmd = { "ConformInfo" },
---     opts = require "configs.conform",
---   },
--- }
-
-
---------------------------------------------------------------------------
 return {
    {
     "williamboman/mason.nvim",
@@ -65,6 +41,7 @@ return {
           "eslint",
           "gopls",
           -- "jdtls",
+          "tsserver"
         },
         automatic_installation = true,
       })
@@ -161,6 +138,36 @@ return {
           })
           end
         end,
+      })
+
+      -- Setup LSP coniguration for typescript langauge
+      vim.lsp.config('tsserver', {
+        filetypes = { "typescript", "typescriptreact", "javascript", "javascriptreact" },
+        root_dir = require("lspconfig.util").root_pattern("package.json", "tsconfig.json", "jsconfig.json", ".git"),
+        settings = {
+          typescript = {
+            inlayHints = {
+              includeInlayParameterNameHints = "all",
+              includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+              includeInlayFunctionParameterTypeHints = true,
+              includeInlayVariableTypeHints = true,
+              includeInlayPropertyDeclarationTypeHints = true,
+              includeInlayFunctionLikeReturnTypeHints = true,
+              includeInlayEnumMemberValueHints = true,
+            },
+          },
+          javascript = {
+            inlayHints = {
+              includeInlayParameterNameHints = "all",
+              includeInlayParameterNameHintsWhenArgumentMatchesName = false,
+              includeInlayFunctionParameterTypeHints = true,
+              includeInlayVariableTypeHints = true,
+              includeInlayPropertyDeclarationTypeHints = true,
+              includeInlayFunctionLikeReturnTypeHints = true,
+              includeInlayEnumMemberValueHints = true,
+            },
+          },
+        },
       })
 
       -- Lua LSP configuration for syntax errors

@@ -2,6 +2,8 @@ local options = {
   formatters_by_ft = {
     lua = { "stylua" },
     go = { "goimports" }, -- Organizes imports and formats Go code
+    javascript = {"eslint_d"},
+    typescript = {"eslint_d"},
   },
 
   format_on_save = {

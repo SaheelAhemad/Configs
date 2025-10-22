@@ -354,14 +354,11 @@ return {
                     "packer",
                 },
                 handlers = {
-                    -- ✅ Only show diagnostics of severity ERROR
                     diagnostic = {
                         enable = true,
                         signs = { "●" }, -- You can change to "●" or "‖" if preferred
                         min_severity = vim.diagnostic.severity.ERROR,
                     },
-
-                    -- ❌ Disable all other handlers
                     cursor = { enable = true},
                     search = { enable = true},
                     gitsigns = { enable = true },
@@ -378,49 +375,25 @@ return {
     },
 
 -- nvim-cokeline (Bufferline)
-  {
-    "noib3/nvim-cokeline",
-    config = function()
-      require("cokeline").setup({
-        default_hl = {
-          fg = "white",  -- Text color
-          bg = "black",  -- Background color
-        },
-        buffers = {
-          insert_after = "filename",  -- After the filename in the buffer line
-          show_diagnostics = true,
-          diagnostics = {
-            error_indicator = "",  -- Error icon
-            warning_indicator = "",  -- Warning icon
-            info_indicator = "",  -- Info icon
-            max_error_count = 3,  -- Show up to 3 errors
-          },
-        },
-      })
-    end
-  },
-
-  {
-		"klen/nvim-test",
-  	config = function()
-		require('nvim-test').setup {
-			run = true,                 -- run tests (using for debug)
-			commands_create = true,     -- create commands (TestFile, TestLast, ...)
-			filename_modifier = ":.",   -- modify filenames before tests run(:h filename-modifiers)
-			silent = false,             -- less notifications
-			term = "terminal",          -- a terminal to run ("terminal"|"toggleterm")
-			termOpts = {
-				direction = "float",   -- terminal's direction ("horizontal"|"vertical"|"float")
-				width = 96,               -- terminal's width (for vertical|float)
-				height = 24,              -- terminal's height (for horizontal|float)
-				go_back = false,          -- return focus to original window after executing
-				stopinsert = "auto",      -- exit from insert mode (true|false|"auto")
-				keep_one = true,          -- keep only one terminal for testing
-			},
-			runners = {               -- setup tests runners
-				go = "nvim-test.runners.go-test",
-			}
-	  }
-    end
-	}
+--   {
+--     "noib3/nvim-cokeline",
+--     config = function()
+--       require("cokeline").setup({
+--         default_hl = {
+--           fg = "white",  -- Text color
+--           bg = "black",  -- Background color
+--         },
+--         buffers = {
+--           insert_after = "filename",  -- After the filename in the buffer line
+--           show_diagnostics = true,
+--           diagnostics = {
+--             error_indicator = "",  -- Error icon
+--             warning_indicator = "",  -- Warning icon
+--             info_indicator = "",  -- Info icon
+--             max_error_count = 3,  -- Show up to 3 errors
+--           },
+--         },
+--       })
+--     end
+--   },
 }

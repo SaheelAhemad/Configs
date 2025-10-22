@@ -5,17 +5,6 @@
 ---@type ChadrcConfig
 
 local M = {}
--- M.plugins = "custom.plugins"
--- remove the cyclic dependency to get the builtin nvchad keymaps
--- M.mappings = require "mappings"
-
--- load custom lsp config
--- vim.api.nvim_create_autocmd("LspAttach", {
---   callback = function()
---     require("configs.lspconfig")
---   end,
--- })
-
 
 M.base46 = {
   theme = "ayu_dark",
@@ -55,12 +44,6 @@ M.ui = {
       end,
     },
   },
-
-  bufferline = {
-    -- Disable built-in bufferline
-    enable = true,
-  },
-
 }
 
 
